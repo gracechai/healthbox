@@ -34,9 +34,9 @@ router.post('/', async (_req, res) => {
     let newEmails = 0;
     let newEvents = 0;
 
-    const syncAll = db.transaction(() => {
+    db.exec('BEGIN');
+    try {
       for (const email of rawEmails) {
-        // Skip already-processed emails
         const existing = checkEmail.get(email.gmail_id);
         if (existing) continue;
 
@@ -46,9 +46,6 @@ router.post('/', async (_req, res) => {
           email.date, email.snippet, email.body_text, email.body_html
         );
         newEmails++;
-
-        // Skip extraction if events already exist for this gmail_id via a prior run
-        if (existing) continue;
 
         const { events, medications } = extractEventsFromEmail({ ...email, id: emailId });
 
@@ -60,9 +57,11 @@ router.post('/', async (_req, res) => {
           insertMed.run(uuid(), null, med.name, med.dosage, emailId);
         }
       }
-    });
-
-    syncAll();
+      db.exec('COMMIT');
+    } catch (txErr) {
+      db.exec('ROLLBACK');
+      throw txErr;
+    }
 
     res.json({ success: true, newEmails, newEvents });
   } catch (err) {

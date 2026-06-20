@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,9 +9,9 @@ let db;
 
 export function getDb() {
   if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    db = new DatabaseSync(DB_PATH);
+    db.exec('PRAGMA journal_mode = WAL');
+    db.exec('PRAGMA foreign_keys = ON');
     initSchema(db);
   }
   return db;
@@ -72,20 +72,20 @@ function initSchema(db) {
       FOREIGN KEY (source_email_id) REFERENCES emails(id)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_events_person   ON events(person_id);
-    CREATE INDEX IF NOT EXISTS idx_events_date     ON events(date);
-    CREATE INDEX IF NOT EXISTS idx_events_type     ON events(type);
-    CREATE INDEX IF NOT EXISTS idx_meds_person     ON medications(person_id);
+    CREATE INDEX IF NOT EXISTS idx_events_person ON events(person_id);
+    CREATE INDEX IF NOT EXISTS idx_events_date   ON events(date);
+    CREATE INDEX IF NOT EXISTS idx_events_type   ON events(type);
+    CREATE INDEX IF NOT EXISTS idx_meds_person   ON medications(person_id);
   `);
 
   // Seed default people only on first run
-  const { c } = db.prepare('SELECT COUNT(*) AS c FROM people').get();
-  if (c === 0) {
+  const row = db.prepare('SELECT COUNT(*) AS c FROM people').get();
+  if (row.c === 0) {
     const ins = db.prepare(
       'INSERT INTO people (id, name, relationship, color) VALUES (?, ?, ?, ?)'
     );
-    ins.run('self', 'Self',  'self',   '#6366f1');
-    ins.run('mom',  'Mom',   'mother', '#ec4899');
-    ins.run('dad',  'Dad',   'father', '#3b82f6');
+    ins.run('self', 'Self', 'self',   '#6366f1');
+    ins.run('mom',  'Mom',  'mother', '#ec4899');
+    ins.run('dad',  'Dad',  'father', '#3b82f6');
   }
 }
