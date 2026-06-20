@@ -179,13 +179,12 @@ const SEED_MEDS = [
 router.post('/', (_req, res) => {
   const db = getDb();
 
-  const clear = db.transaction(() => {
+  db.exec('BEGIN');
+  try {
     db.prepare(`DELETE FROM medications WHERE id LIKE 'seed-%'`).run();
     db.prepare(`DELETE FROM events     WHERE id LIKE 'seed-%'`).run();
     db.prepare(`DELETE FROM emails     WHERE id LIKE 'seed-%'`).run();
-  });
 
-  const seed = db.transaction(() => {
     const insEmail = db.prepare(`
       INSERT OR IGNORE INTO emails (id, gmail_id, subject, from_address, date, snippet, body_text)
       VALUES (?, NULL, ?, ?, ?, ?, ?)
@@ -208,10 +207,12 @@ router.post('/', (_req, res) => {
     for (const m of SEED_MEDS) {
       insMed.run(m.id, m.person_id, m.name, m.dosage, m.source_email_id);
     }
-  });
 
-  clear();
-  seed();
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 
   res.json({ success: true, emails: SEED_EMAILS.length, events: SEED_EVENTS.length, medications: SEED_MEDS.length });
 });
